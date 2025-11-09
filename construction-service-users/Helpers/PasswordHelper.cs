@@ -28,8 +28,15 @@ public static class PasswordHelper
 
     public static bool VerifyPassword(string password, string storedHash)
     {
-        // Convert from base64 string
-        byte[] hashBytes = Convert.FromBase64String(storedHash);
+        if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(storedHash))
+            return false;
+
+        try
+        {
+            Console.WriteLine($"Verifying password. Stored hash: {storedHash}");
+            
+            // Convert from base64 string
+            byte[] hashBytes = Convert.FromBase64String(storedHash);
 
         // Get the salt
         byte[] salt = new byte[16];
@@ -40,11 +47,22 @@ public static class PasswordHelper
         byte[] hash = pbkdf2.GetBytes(32);
 
         // Compare the results
-        for (int i = 0; i < 32; i++)
+        bool isMatch = true;
+        for (int i = 16; i < 48; i++)
         {
-            if (hashBytes[i + 16] != hash[i])
-                return false;
+            if (hashBytes[i] != hash[i - 16])
+            {
+                isMatch = false;
+                break;
+            }
         }
-        return true;
+        
+        Console.WriteLine($"Password verification result: {isMatch}");
+        return isMatch;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

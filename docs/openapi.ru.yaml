@@ -1,0 +1,383 @@
+openapi: 3.0.0
+info:
+  title: API Строительного Сервиса
+  description: API для управления строительными заказами и аутентификацией пользователей
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: API Gateway
+  - url: http://localhost:8001
+    description: Сервис заказов
+  - url: http://localhost:8002
+    description: Сервис пользователей
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный из конечной точки /auth/login
+
+  schemas:
+    UserRegistrationDto:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePassword123!
+        name:
+          type: string
+          example: Иван Петров
+      required:
+        - email
+        - password
+        - name
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePassword123!
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        createdDate:
+          type: string
+          format: date-time
+        lastModifiedDate:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Ремонт кухни"
+        description:
+          type: string
+          example: "Полный ремонт кухни, включая установку шкафов и столешниц"
+        location:
+          type: string
+          example: "ул. Ленина 123, г. Москва"
+        startDate:
+          type: string
+          format: date-time
+        estimatedDuration:
+          type: string
+          format: duration
+          example: "P5D"
+      required:
+        - title
+        - description
+        - location
+        - startDate
+        - estimatedDuration
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        estimatedDuration:
+          type: string
+          format: duration
+        status:
+          type: string
+          enum: [created, in_progress, completed, cancelled]
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        estimatedDuration:
+          type: string
+          format: duration
+        status:
+          type: string
+          enum: [created, in_progress, completed, cancelled]
+        createdDate:
+          type: string
+          format: date-time
+        lastModifiedDate:
+          type: string
+          format: date-time
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Аутентификация
+      summary: Регистрация нового пользователя
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationDto'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Неверные входные данные или email уже существует
+
+  /auth/login:
+    post:
+      tags:
+        - Аутентификация
+      summary: Вход пользователя
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверные учетные данные
+
+  /users:
+    get:
+      tags:
+        - Пользователи
+      summary: Получить список всех пользователей
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Не авторизован
+
+  /users/{uuid}:
+    get:
+      tags:
+        - Пользователи
+      summary: Получить пользователя по UUID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Пользователь найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Пользователь не найден
+
+  /orders:
+    post:
+      tags:
+        - Заказы
+      summary: Создать новый заказ
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          description: Не авторизован
+
+    get:
+      tags:
+        - Заказы
+      summary: Получить все заказы авторизованного пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список заказов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Не авторизован
+
+  /orders/{id}:
+    get:
+      tags:
+        - Заказы
+      summary: Получить заказ по ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Заказ не найден
+
+    put:
+      tags:
+        - Заказы
+      summary: Обновить заказ
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: Заказ обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '403':
+          description: Запрещено - не владелец заказа
+        '404':
+          description: Заказ не найден
+
+  /orders/{id}/cancel:
+    post:
+      tags:
+        - Заказы
+      summary: Отменить заказ
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ отменен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '403':
+          description: Запрещено - не владелец заказа
+        '404':
+          description: Заказ не найден
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Аутентификация
+    description: Конечные точки аутентификации пользователей
+  - name: Пользователи
+    description: Конечные точки управления пользователями
+  - name: Заказы
+    description: Конечные точки управления заказами

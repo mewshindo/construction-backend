@@ -1,16 +1,17 @@
-
 using ConstructionServiceUsers.Models;
 using ConstructionServiceUsers.Helpers;
-using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Authorization services
+builder.Services.AddAuthorization();
 
 // Add JWT configuration
 builder.Services.AddAuthentication().AddJwtBearer(options =>
@@ -29,14 +30,25 @@ builder.Services.AddAuthentication().AddJwtBearer(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+
+// Add support for serving static files
+// No need to add static files service in .NET Core
+
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new()
+    // No need to configure SwaggerDoc as we'll use the YAML file directly
+});
+
+// Configure Swagger middleware to use the YAML file
+builder.Services.ConfigureSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", null); // Required for the middleware to work
+    var yamlPath = Path.Combine(AppContext.BaseDirectory, "docs", "openapi.ru.yaml");
+    if (File.Exists(yamlPath))
     {
-        Title = "Construction Users Service",
-        Version = "v1",
-        Description = "Manages user accounts for the construction system."
-    });
+        options.CustomSchemaIds(type => type.FullName);
+        options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "construction-service-users.xml"));
+    }
 
     // Add JWT Bearer auth to Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -67,10 +79,15 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Serve the OpenAPI specification file directly
+app.UseStaticFiles();
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Users Service v1");
+    options.SwaggerEndpoint("/swagger/openapi.json", "API Строительного Сервиса - Пользователи");
+    options.RoutePrefix = "swagger";
+    options.DocumentTitle = "API Строительного Сервиса - Документация";
 });
 
 // Enable authentication/authorization middleware
@@ -167,11 +184,22 @@ app.MapPost("/users", (UserRegistrationDto userData) =>
         LastModifiedDate = DateTime.UtcNow
     };
 
+    // Store the user in the database
     fakeUsersDb[user.UUID] = user;
     
-    // Don't return password hash in response
-    user.PasswordHash = "";
-    return Results.Created($"/users/{user.UUID}", user);
+    // Create a new user object for the response without the password hash
+    var responseUser = new User
+    {
+        UUID = user.UUID,
+        Email = user.Email,
+        Name = user.Name,
+        Roles = user.Roles,
+        CreatedDate = user.CreatedDate,
+        LastModifiedDate = user.LastModifiedDate,
+        PasswordHash = "" // Don't return password hash in response
+    };
+    
+    return Results.Created($"/users/{user.UUID}", responseUser);
 });
 
 // ===== UPDATE USER =====
@@ -237,11 +265,17 @@ app.MapDelete("/users/{uuid}", (Guid uuid) =>
 // ===== LOGIN =====
 app.MapPost("/login", (LoginRequest loginData) =>
 {
+    Console.WriteLine($"Login attempt for email: {loginData.Email}");
     var user = fakeUsersDb.Values.FirstOrDefault(u => 
         u.Email.Equals(loginData.Email, StringComparison.OrdinalIgnoreCase));
 
     if (user == null)
+    {
+        Console.WriteLine("User not found in database");
         return Results.NotFound(new { error = "User not found" });
+    }
+    
+    Console.WriteLine($"Found user with hash: {user.PasswordHash}");
 
     if (!PasswordHelper.VerifyPassword(loginData.Password, user.PasswordHash))
         return Results.BadRequest(new { error = "Invalid password" });
@@ -275,6 +309,6 @@ app.MapGet("/users/status", () =>
     return Results.Json(new { status = "Users service is running" });
 });
 
-
-
 app.Run();
+
+public partial class Program { }

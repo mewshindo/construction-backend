@@ -65,7 +65,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Construction API Gateway",
         Version = "v1",
-        Description = "Routes traffic to Users & Orders services."
+        Description = "Routes traffic to Users and Orders services."
     });
 });
 
