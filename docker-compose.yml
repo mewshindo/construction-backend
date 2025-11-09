@@ -1,0 +1,44 @@
+version: '3.9'
+
+services:
+  api_gateway:
+    container_name: construction-apigateway
+    build:
+      context: ./construction-apigateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - service_users
+      - service_orders
+    environment:
+      ASPNETCORE_URLS: http://+:8000
+    networks:
+      - construction_net
+
+  service_orders:
+    container_name: construction-service-orders
+    build:
+      context: ./construction-service-orders
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      ASPNETCORE_URLS: http://+:8000
+    networks:
+      - construction_net
+
+  service_users:
+    container_name: construction-service-users
+    build:
+      context: ./construction-service-users
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      ASPNETCORE_URLS: http://+:8000
+    networks:
+      - construction_net
+
+networks:
+  construction_net:

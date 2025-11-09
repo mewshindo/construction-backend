@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>construction_backend</RootNamespace>
-    <UserSecretsId>ebdd1da1-87af-491f-aa63-912519083135</UserSecretsId>
+    <RootNamespace>construction_service_users</RootNamespace>
+    <UserSecretsId>cc8a941c-3050-4dd5-a0f2-f800b73ba50a</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 
